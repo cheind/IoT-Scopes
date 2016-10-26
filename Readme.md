@@ -95,7 +95,24 @@ void loop()
 }
 ```
 
-More examples can be found in the [examples/](examples/) directory.
+More examples can be found in the [examples](examples/) directory.
 
- 
- 
+## Accuracy
+
+DigitalScope was developed for recording IR signals sent out by remotes operating at 38kHz.
+
+The comparison is based on event arrival times reported between a hardware logic analyzer (Saleae Logic 4) 
+and **DigitalScope** running on an Arduino Uno R3. Data was captured from several typical IR remote commands 
+simulateously. 
+
+We find that on average **DigitalScope** is off by `55us` after `180ms`. The image below shows how
+timing errors increase linearly with recording time. The three zigzags correspond to three data bursts
+sent from an IR remote. 
+
+Since the timing error in between the bursts increases as well (i.e ISR is not invoked because no 
+edge events occur), we conclude this effect can be attributed to the inaccuracy of the Arduino clock.
+Based on [research](http://forum.arduino.cc/index.php?topic=13289.0) the Arduino Uno R3 uses a ceramic 
+resonantor instead of a crystal. Typical errors of ceramic resonators are around `0.5%` or `5000ppm`.
+
+
+![Timing errors](etc/timing_errors_small.png) 
