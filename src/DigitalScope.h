@@ -21,10 +21,10 @@
 
 namespace cheind {
 
-    /** A digital scope to capture edge event changes on input pins.
-
+    /** A digital scope to capture edge event changes at input pins.
 
         ## Introduction
+
         This implementation of a software scope records digital event changes (HIGH->LOW and LOW->HIGH)
         of digital input pins. DigitalScope supports three different types of start triggers 
         (CHANGE, RISING, FALLING).
@@ -42,7 +42,9 @@ namespace cheind {
         up to 2^32 microseconds (~ 4296 seconds) after the first event was captured. You may choose less
         bits to save memory at the expense of shorter capture periods. DigitalScope does not perform
         any overflow checks.
-    
+
+        See `examples/` directory for example usage.
+
         ## Notes
 
         The digital scope uses an interrupt service routine (ISR) to capture event changes on target pins. 
@@ -82,7 +84,11 @@ namespace cheind {
             detachInterrupt(digitalPinToInterrupt(_pin));
         }
 
-        /** Set a callback function to be invoked when desired number of events have been gathered. */
+        /** Set a callback function to be invoked when desired number of events were recorded.
+
+            \param fnc  a pointer to function with signature void(void). Pass zero pointer to
+                        disable a previously set callback.     
+        */
         void setCompletedCallback(CallbackFnc fnc) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (!_data.enabled) {
@@ -91,7 +97,11 @@ namespace cheind {
             }
         }
 
-        /** Set a callback function to be invoked after the first event was recorded. */
+        /** Set a callback function to be invoked after the first event was recorded.
+            
+            \param fnc  a pointer to function with signature void(void). Pass zero pointer to
+            disable a previously set callback.   
+        */
         void setFirstCallback(CallbackFnc fnc) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (!_data.enabled) {
@@ -134,7 +144,6 @@ namespace cheind {
                     break;
                 }
 
-                _data.idx = 0;
                 _data.enabled = true;                
             }
         }
@@ -178,7 +187,7 @@ namespace cheind {
             \return RISING or FALLING depending on the event type.
          */
         uint8_t eventOf(uint16_t idx) const {
-            bool isFalling = (idx % 2 == 0) ^ (_istate == LOW); 
+            const bool isFalling = (idx % 2 == 0) ^ (_istate == HIGH); 
             return isFalling ? FALLING : RISING;
         }
 
