@@ -1,16 +1,30 @@
+/**
+    This file is part of DigitalScope - a software for capturing digital input events.
+
+    Copyright(C) 2016 Christoph Heindl
+
+    All rights reserved.
+    This software may be modified and distributed under the terms
+    of the BSD license.See the LICENSE file for details.
+
+    This example collects a fixed number of input events from a single input pin.
+    Once the collection is complete it prints the results via Serial. 
+
+    DigitalScope uses carefully designed interrupt service routines to maximize
+    the frequency of observable event changes.
+*/
 
 #include "Arduino.h"
 
-// Include library
+// Include the library
 #include <DigitalScope.h>
+using namespace cheind;
 
-// Number of events to collect
+// Initalize scope with number of events to collect (128) and target pin (2)
 #define NEVENTS 128
+DigitalScope<NEVENTS> scope(2);
 
-// Initialize a scope from the number of events and the target pin(2)
-cheind::DigitalScope<NEVENTS> scope(2);
-
-// A flag used to signal the main loop that NEVENTS samples have been captured.
+// Will be used to signal data readiness. 
 bool complete = false;
 
 void setup()
@@ -18,7 +32,7 @@ void setup()
     Serial.begin(9600);
     while(!Serial) {}
 
-    // Set our callback function when data gathering is complete. 
+    // Set a callback function when data recording is complete. 
     scope.setCompletedCallback(onComplete);
 
     // Start recording.
@@ -46,6 +60,7 @@ void loop()
         Serial.println("END DATA");
         
         // Restart the scope after a short pause.
+
         delay(5000);
         Serial.println("LOG Ready for capture");
         complete = false;
@@ -54,17 +69,10 @@ void loop()
 }
 
 /**
-    Callback function from DigitalScope enough events have been gathered.
+    Callback function invoked by scope when required number of samples were recorded.
 
     This function is handed to scope through DigitalScope::setCompletedCallback in 
-    setup(), before the scope is started. 
-
-    Note, this function is invoked from an interrupt service routine (ISR), therefore
-    delay and delayMicroseconds will not work in here. As a rule of thumb, just toggle
-    some flags in here that signal loop() what todo.  
-    
-    Read more about interrupts.
-    https://www.arduino.cc/en/Reference/AttachInterrupt
+    setup(), before the scope is started.     
 */
 void onComplete() 
 {

@@ -1,31 +1,50 @@
+/**
+    This file is part of DigitalScope - a software for capturing digital input events.
+
+    Copyright(C) 2016 Christoph Heindl
+
+    All rights reserved.
+    This software may be modified and distributed under the terms
+    of the BSD license.See the LICENSE file for details.
+
+    This example collects a any number of samples during a 1 second period after
+    a start trigger was encountered. Once the collection is complete it prints 
+    the results via Serial. 
+
+    DigitalScope uses carefully designed interrupt service routines to maximize
+    the frequency of observable event changes.
+*/
 
 #include "Arduino.h"
 
 // Include library
 #include <DigitalScope.h>
+using namespace cheind;
 
+// Initalize scope with max number of events to collect (128) and target pin (2)
 #define NEVENTS 128
-cheind::DigitalScope<NEVENTS> scope(2);
+DigitalScope<NEVENTS> scope(2);
 
-bool firstEvent = false;
+// Will be used to signal begin of event detection. 
+bool started = false;
 
 void setup()
 {
     Serial.begin(9600);
     while(!Serial) {}
 
-    // Set our callback function when data gathering is complete. 
-    scope.setFirstCallback(onFirst);
+    // Set our callback function when data recording has begun. 
+    scope.setBeginCallback(onBegin);
 
-    // Start recording.
-    firstEvent = false;
+    started = false;
 
-    scope.start(RISING);
+    // Start recording when we observe a falling edge on input.
+    scope.start(FALLING);
 }
 
 void loop()
 {
-    if (firstEvent) {
+    if (started) {
         // Sleep for a second. Scope will continue to record data meanwhile.
         delay(1000);
         
@@ -37,7 +56,8 @@ void loop()
         for (uint16_t i = 0; i < nEvents; ++i)
         {
             // Print info about event time in microseconds 
-            // since first event, the current state HIGH/LOW, the event type triggering
+            // since first event, the current state HIGH/LOW, 
+            // the event type triggering, and
             // the state change RISING/FALLING.
             Serial.print(scope.timeOf(i)); Serial.print(" ");            
             Serial.print(scope.eventOf(i)); Serial.print(" ");
@@ -47,28 +67,22 @@ void loop()
         Serial.println("END DATA");
 
         // Restart the scope after a short pause.
+
         delay(5000);
         Serial.println("LOG Ready for capture");
-        firstEvent = false;
-        scope.start(RISING);
+        started = false;
+        scope.start(FALLING);
     }
 }
 
 /**
-    Callback function from DigitalScope enough events have been gathered.
+    Callback function invoked by scope when first sample was recorded.
 
-    This function is handed to scope through DigitalScope::setFirstCallback in 
-    setup(), before the scope is started. 
-
-    Note, this function is invoked from an interrupt service routine (ISR), therefore
-    delay and delayMicroseconds will not work in here. As a rule of thumb, just toggle
-    some flags in here that signal loop() what todo.  
-    
-    Read more about interrupts.
-    https://www.arduino.cc/en/Reference/AttachInterrupt
+    This function is handed to scope through DigitalScope::setBeginCallback in 
+    setup(), before the scope is started.     
 */
-void onFirst() 
+void onBegin() 
 {
     // Signal loop() that first event was recorded.
-    firstEvent = true;
+    started = true;
 }

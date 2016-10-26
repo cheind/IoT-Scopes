@@ -1,8 +1,8 @@
 
 /**
-    This file is part of ScopeOne - a software scope for capturing digital input events.
+    This file is part of DigitalScope - a software scope for capturing digital input events.
 
-    Copyright(C) 2015/2016 Christoph Heindl
+    Copyright(C) 2016 Christoph Heindl
 
     All rights reserved.
     This software may be modified and distributed under the terms
@@ -102,10 +102,10 @@ namespace cheind {
             \param fnc  a pointer to function with signature void(void). Pass zero pointer to
             disable a previously set callback.   
         */
-        void setFirstCallback(CallbackFnc fnc) {
+        void setBeginCallback(CallbackFnc fnc) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (!_data.enabled) {
-                    _data.onFirst = fnc;
+                    _data.onBegin = fnc;
                 }
             }
         }
@@ -215,12 +215,12 @@ namespace cheind {
             int32_t idx;
             uint32_t start;
             D samples[N];
-            CallbackFnc onFirst;
+            CallbackFnc onBegin;
             CallbackFnc onComplete;
             bool enabled;
 
             SharedData()
-                :idx(0), start(0), onFirst(0), onComplete(0), enabled(false)
+                :idx(0), start(0), onBegin(0), onComplete(0), enabled(false)
             {}
         };
 
@@ -254,8 +254,9 @@ namespace cheind {
                 if (d.idx == 0) {
                     // On first event we record start time.   
                     d.start = now;
-                    if (d.onFirst) d.onFirst();
+                    if (d.onBegin) d.onBegin();
                 }
+                
                 // Save timestamp
                 d.samples[d.idx++] = D(now - d.start);
             }
