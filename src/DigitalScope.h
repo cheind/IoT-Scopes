@@ -23,26 +23,43 @@ namespace cheind {
 
     /** A digital scope to capture edge event changes on input pins.
 
-        This implementation of a software scope records digital event changes (HIGH->LOW and LOW->HIGH)
-        on digital input pins. A DigitalScope can only be configured for a single input pin and for
-        specialities of ISRs only one DigitalScope should be enabled at any point in time.
 
-        The DigitalScope records timepoints of edge events. The number of events it can record in 
-        its internal buffer is specified by the template argument N. Since the scope only records
-        edge events, it will only track timestamps of events and reconstruct the serials of events
-        from an initial state and event number.
+        ## Introduction
+        This implementation of a software scope records digital event changes (HIGH->LOW and LOW->HIGH)
+        of digital input pins. DigitalScope supports three different types of start triggers 
+        (CHANGE, RISING, FALLING).
+
+        The number of events DigitalScope can record is specified by the template argument `N`. 
 
         Upon the first event the scope records the absolute timestamp in microseconds 
         (DigitalScope::timeOfStart) and makes subsequent events relative to reference timestamp. 
         DigitalScope::timeOf reports the relative time of an indexed event. DigitalScope::eventOf
-        reports the reconstructed edge event for an indexed event.
+        reports the reconstructed edge event (RISING, FALLING) for an indexed event and 
+        DigitalScope::stateOf returns the associated state (HIGH,LOW). 
 
-        Note:
-        The digital scope uses an interrupt service routine (ISR) to capture
-        event changes on target pins. Not all boards support ISRs to be attached
-        to all available pins. Tefer to https://www.arduino.cc/en/Reference/AttachInterrupt to determine
-        which pins or pin-groups are supported.
+        The template argument `D` allows you to specify the data depth of each 
+        timestamp. Using the default (uint32_t) allows for correct recording of event timestamps of
+        up to 2^32 microseconds (~ 4296 seconds) after the first event was captured. You may choose less
+        bits to save memory at the expense of shorter capture periods. DigitalScope does not perform
+        any overflow checks.
+    
+        ## Notes
 
+        The digital scope uses an interrupt service routine (ISR) to capture event changes on target pins. 
+        Not all boards support ISRs to be attached to all available pins. Refer to 
+        https://www.arduino.cc/en/Reference/AttachInterrupt to determine which pins or pin-groups are supported.
+
+        ## Warnings
+        
+        When using callbacks such as DigitalScope::onComplete, DigitalScope::onFirst take notice that
+        those callbacks are invoked from an interrupt service handler (ISR). Make sure that your callback
+        is as short as possible to avoid missing any events. Also, functions such as delay will not work
+        correctly from within ISRs.
+
+        DigitalScope can only be configured for a single input pin and for peculiarities of ISRs only 
+        one DigitalScope should be running at any point in time.
+        
+        Read more about ISRs: https://www.arduino.cc/en/Reference/AttachInterrupt 
     **/
 
     template<uint16_t N, typename D = uint32_t>
@@ -83,17 +100,41 @@ namespace cheind {
             }
         }
 
-        /** Start event collection. */
-        void start() {
+        /** Start event collection.
+
+            Recording starts when specified trigger mode is encountered. Currently,
+            there are trigger modes are supported:
+                - CHANGE: Trigger when encountering the first edge change
+                - RISING: Trigger when encountering a rising egde
+                - FALLING: Trigger when encounering a falling edge
+
+            \param triggerMode Trigger mode to start event capturing. 
+         */
+        void start(uint8_t triggerMode = CHANGE) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (_data.enabled) return;
 
                 self = this; 
 
+                _data.start = 0;
+                uint8_t state = digitalRead(_pin);
+
+                switch (triggerMode) {
+                case CHANGE: 
+                    _data.idx = 0;
+                    _istate = state; 
+                    break;
+                case RISING:
+                    _data.idx = (state == LOW) ? 0 : -1;
+                    _istate = HIGH; 
+                    break;
+                case FALLING:
+                    _data.idx = (state == HIGH) ? 0 : -1;
+                    _istate = LOW; 
+                    break;
+                }
+
                 _data.idx = 0;
-                _data.start = 0;                                
-                _initialState = digitalRead(_pin);
-               
                 _data.enabled = true;                
             }
         }
@@ -115,10 +156,11 @@ namespace cheind {
 
         /** Number of events already collected. */
         uint16_t numEvents() const {
+            int32_t idx;
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                return _data.idx;
+                idx = _data.idx; 
             }
-            DIGITALSCOPE_NO_RETURN_WARN(uint16_t);
+            return idx < 0 ? 0 : static_cast<uint16_t>(idx);
         }
 
         /** Test if the number of events collected matches internal buffer size. */
@@ -127,32 +169,42 @@ namespace cheind {
         }
 
         /** Returns the event time (us) relative to start time of event collection. */ 
-        D timeOf(uint16_t idx) const {
+        uint32_t timeOf(uint16_t idx) const {
             return _data.samples[idx];
         } 
 
-        /** Return the event type associated with a specific event. */
+        /** Return the event type associated with a specific event.
+
+            \return RISING or FALLING depending on the event type.
+         */
         uint8_t eventOf(uint16_t idx) const {
-            // State toggles with each event and is dependent on initial state.
-            bool even = (idx % 2 == 0);
-            return even ? !_initialState : _initialState;
+            bool isFalling = (idx % 2 == 0) ^ (_istate == LOW); 
+            return isFalling ? FALLING : RISING;
+        }
+
+        /** Return the state type associated with a specific event.
+
+            \return HIGH or LOW depending on the state.
+        */
+        uint8_t stateOf(uint16_t idx) const {
+            return eventOf(idx) == RISING ? HIGH : LOW;            
         }
 
         /** Returns event collection start time (us) since the Arduino began running the current program. */
-        const uint64_t timeOfStart() const {
+        const uint32_t timeOfStart() const {
             return _data.start;
         }
 
         /** Returns the initial state of input just before sampling started. */
         uint8_t initialState() const {
-            return _initialState;
+            return _istate;
         }
 
     private:
 
         struct SharedData {
-            uint16_t idx;
-            uint64_t start;
+            int32_t idx;
+            uint32_t start;
             D samples[N];
             CallbackFnc onFirst;
             CallbackFnc onComplete;
@@ -170,26 +222,39 @@ namespace cheind {
             Updates state of DigitalScope<T>::SharedData.
          */
         static void onChange() {
-            uint64_t now = micros();
+            uint32_t now = micros();
 
             volatile SharedData &d = self->_data;
-
+            
+            // When not enabled, do nothing
             if (!d.enabled) {
                 return;
+            } 
+            
+            // The idx variable tells us about the next event slot. 
+            // Here we have the following possibilities: 
+            
+            if (d.idx < 0) {
+                // A negative index tells us to skip this event (trigger).
+                d.idx++;
             } else if (d.idx == N) {
+                // We have reached the maximum number of events we can store.
                 d.enabled = false;
                 if (d.onComplete) d.onComplete();
-                return;
-            } else if (d.idx == 0) {
-                d.start = now;
-                if (d.onFirst) d.onFirst();                
+            } else {                
+                if (d.idx == 0) {
+                    // On first event we record start time.   
+                    d.start = now;
+                    if (d.onFirst) d.onFirst();
+                }
+                // Save timestamp
+                d.samples[d.idx++] = D(now - d.start);
             }
-
-            d.samples[d.idx++] = D(now - d.start);
+            
         }
 
         uint8_t _pin;
-        uint8_t _initialState;
+        uint8_t _istate;
         volatile SharedData _data;
     };
 

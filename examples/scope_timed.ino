@@ -19,7 +19,7 @@ void setup()
 
     // Start recording.
     firstEvent = false;
-    scope.start();
+    scope.start(CHANGE);
 }
 
 void loop()
@@ -29,12 +29,14 @@ void loop()
         delay(1000);
         
         scope.stop();
-        for (uint16_t i = 0; i < scope.numEvents(); ++i)
+        uint16_t nEvents = scope.numEvents();
+        for (uint16_t i = 0; i < nEvents; ++i)
         {
             Serial.print(scope.timeOf(i)); Serial.print(",");            
-            Serial.print(scope.eventOf(i));
+            Serial.print(scope.eventOf(i)); Serial.print(",");
+            Serial.print(scope.stateOf(i));
 
-            if (i < NEVENTS - 1)
+            if (i < nEvents - 1)
                 Serial.print(" ");
             Serial.println();
         }
@@ -43,7 +45,7 @@ void loop()
         delay(5000);
         Serial.println("Ready for capture");
         firstEvent = false;
-        scope.start();
+        scope.start(CHANGE);
     }
 }
 
