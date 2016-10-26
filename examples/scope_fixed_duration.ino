@@ -19,33 +19,38 @@ void setup()
 
     // Start recording.
     firstEvent = false;
-    scope.start(CHANGE);
+
+    scope.start(RISING);
 }
 
 void loop()
 {
     if (firstEvent) {
-        // Sleep for a second
+        // Sleep for a second. Scope will continue to record data meanwhile.
         delay(1000);
         
+        // Explicitly stop scope
         scope.stop();
-        uint16_t nEvents = scope.numEvents();
+
+        const uint16_t nEvents = scope.numEvents();
+        Serial.println("BEGIN DATA");
         for (uint16_t i = 0; i < nEvents; ++i)
         {
-            Serial.print(scope.timeOf(i)); Serial.print(",");            
-            Serial.print(scope.eventOf(i)); Serial.print(",");
+            // Print info about event time in microseconds 
+            // since first event, the current state HIGH/LOW, the event type triggering
+            // the state change RISING/FALLING.
+            Serial.print(scope.timeOf(i)); Serial.print(" ");            
+            Serial.print(scope.eventOf(i)); Serial.print(" ");
             Serial.print(scope.stateOf(i));
-
-            if (i < nEvents - 1)
-                Serial.print(" ");
             Serial.println();
         }
+        Serial.println("END DATA");
 
         // Restart the scope after a short pause.
         delay(5000);
-        Serial.println("Ready for capture");
+        Serial.println("LOG Ready for capture");
         firstEvent = false;
-        scope.start(CHANGE);
+        scope.start(RISING);
     }
 }
 

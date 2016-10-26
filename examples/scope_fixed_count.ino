@@ -32,21 +32,22 @@ void loop()
         
         // Data is available, print via Serial
         
+        Serial.println("BEGIN DATA");
         for (uint16_t i = 0; i < NEVENTS; ++i)
         {
-            // Relative time in us relative to first event.
+            // Print info about event time in microseconds 
+            // since first event, the current state HIGH/LOW, the event type triggering
+            // the state change RISING/FALLING.
             Serial.print(scope.timeOf(i)); Serial.print(",");            
-            // Type of event 1 = rising edge, 0 = falling edge.
+            Serial.print(scope.stateOf(i)); Serial.print(",");
             Serial.print(scope.eventOf(i));
-
-            if (i < NEVENTS - 1)
-                Serial.print(" ");
             Serial.println();
         }
+        Serial.println("END DATA");
         
         // Restart the scope after a short pause.
         delay(5000);
-        Serial.println("Ready for capture");
+        Serial.println("LOG Ready for capture");
         complete = false;
         scope.start();
     }
