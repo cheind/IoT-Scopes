@@ -1,7 +1,7 @@
 
 # DigitalScope - Library
 
-This library is a collection of routines for recording events from digital input pins. Turns
+This library is a collection of routines for recording events from digital input pins. It turns
 your Arduino into a software logic analyzer. Carefully designed maximizing capture performance.
 
 ## Usage
@@ -17,9 +17,7 @@ using namespace cheind;
 DigitalScope<NEVENTS> scope(2);
 ```
 
-**DigitalScope** uses interrupt service routines to free your code from unnecessary polling.
-One way of using a scope is by recording events during a fixed time period after some start
-trigger was observed.
+**DigitalScope** uses interrupt service routines to free your code from unnecessary polling. One way of using a scope is by recording events during a fixed time period after some start trigger was observed.
 
 ```c++
 
@@ -52,8 +50,7 @@ void onBegin()
 }
 ```
 
-Finally in `loop()` we wait for 1 second once `started` turned true and 
-output all events captured during this period via the Serial interface.
+Finally in `loop()` we wait for 1 second once `started` turned true and output all events captured during this period via the Serial interface.
 
 ```c++
 void loop()
@@ -99,20 +96,14 @@ More examples can be found in the [examples](examples/) directory.
 
 ## Accuracy
 
-DigitalScope was developed for recording IR signals sent out by remotes operating at 38kHz.
+**DigitalScope** was developed for recording IR signals sent out by remotes operating at 38kHz. The following findings are based on differences of event arrival times reported between a hardware logic analyzer (Saleae Logic 4) and **DigitalScope** running on an Arduino Uno R3. Data was captured simulateously based on edge triggering over multiple runs.
 
-The comparison is based on event arrival times reported between a hardware logic analyzer (Saleae Logic 4) 
-and **DigitalScope** running on an Arduino Uno R3. Data was captured from several typical IR remote commands 
-simulateously. 
+We find that on average **DigitalScope** is off by `55us` after `180ms`. The image below shows how timing errors increase linearly with recording time. The three zigzags correspond to three data bursts sent from an IR remote. 
 
-We find that on average **DigitalScope** is off by `55us` after `180ms`. The image below shows how
-timing errors increase linearly with recording time. The three zigzags correspond to three data bursts
-sent from an IR remote. 
+![Timing errors](etc/timing_errors_small.png)
 
-Since the timing error in between the bursts increases as well (i.e ISR is not invoked because no 
-edge events occur), we conclude this effect can be attributed to the inaccuracy of the Arduino clock.
-Based on [research](http://forum.arduino.cc/index.php?topic=13289.0) the Arduino Uno R3 uses a ceramic 
-resonantor instead of a crystal. Typical errors of ceramic resonators are around `0.5%` or `5000ppm`.
+Since the timing error in between the bursts increases as well (i.e ISR is not invoked because no edge events occur), we could conclude that this effect can be attributed partly to the inaccuracy of the Arduino clock. 
 
+Based on [literature](http://forum.arduino.cc/index.php?topic=13289.0) the Arduino Uno R3 uses a ceramic resonantor instead of a crystal. Typical errors of ceramic resonators range are around `0.5%` or `5000ppm`. Note this is backed by [this thread](http://forum.arduino.cc/index.php?topic=89784.0). `5000ppm` means the tolerated deviation from a nominal clock value is ~ +/- `900us` in every `180ms`. Far below the `55us` on average measured.
 
-![Timing errors](etc/timing_errors_small.png) 
+The [accuracy](http://support.saleae.com/hc/en-us/articles/208667166-Measurement-Error-Logic-timing-digital-pulse-width-) of the logic analyzer is `50ppm` or `0.005%`. It has been neglected in the above conclusion as well as other contributing factors such as when thresholds for analog signals are reached.
