@@ -257,32 +257,36 @@ namespace scopes {
         }
 
         inline static void _onChange(uint32_t now, volatile SharedData &d) __attribute__((always_inline)) {
-
-            int32_t slot = d.idx & (N - 1); // Fast modulo for power of two numbers.
+            
+            int32_t idx = d.idx; // Read in volatile here once.
+            
+            int32_t slot = idx & (N - 1); // Fast modulo for power of two numbers.
             d.samples[slot] = now;
 
-            if (WithBeginCallback)
-            { // Compile time if
-                if (d.idx == 0)
+            if (WithBeginCallback) // Compile time if
+            {
+                if (idx == 0)
                 {
                     d.onBegin();
                 }
             }
 
-            d.idx++;
+            idx++;
 
-            if (WithCompleteCallback | WithAutoStop)
-            { // Compile time if
-                const bool complete = (d.idx == N);
+            if (WithCompleteCallback | WithAutoStop) // Compile time if
+            {
+                const bool complete = (idx == N);
 
                 if (complete)
                 {
-                    if (WithAutoStop)
+                    if (WithAutoStop) // Compile time if
                         detachInterrupt(digitalPinToInterrupt(Pin_));
-                    if (WithCompleteCallback)
+                    if (WithCompleteCallback) // Compile time if
                         d.onComplete();
                 }
             }
+
+            d.idx = idx;
         }
 
         uint8_t _istate;
