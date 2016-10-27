@@ -1,0 +1,29 @@
+{
+    "name": "IoT-Scopes",
+    "keywords": "scope, logic analyzer, io",
+    "description": "Turns your Arduino into a software logic analyzer",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/cheind/IoT-Scopes.git"
+    },
+    "authors": [
+        {
+            "name": "Christoph Heindl",
+            "maintainer": true
+        }
+    ],
+    "version": "1.0",
+    "frameworks": "arduino",
+    "platforms": "*",
+    "examples": [
+        "[Ee]xamples/*.ino"
+    ],
+    "license": "BSD",
+    "export": {
+        "include": [
+            "etc/*",
+            "examples/*",
+            "Readme.md"
+        ]
+    }
+}
