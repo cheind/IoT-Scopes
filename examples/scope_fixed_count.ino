@@ -28,15 +28,15 @@ bool complete = false;
 
 void setup()
 {
+    complete = false;
+
     Serial.begin(9600);
     while(!Serial) {}
 
     // Set a callback function when data recording is complete. 
     scope.setCompleteCallback(onComplete);
 
-    // Start recording.
-    complete = false;
-
+    // Start recording.    
     scope.start();
 }
 
@@ -68,7 +68,7 @@ void loop()
 }
 
 /**
-    Callback function invoked by scope when required number of samples were recorded.
+    Invoked by scope when required number of samples were recorded.
 
     This function is handed to scope through DigitalScope::setCompleteCallback in 
     setup(), before the scope is started.     

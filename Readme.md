@@ -6,20 +6,23 @@ your Arduino into a software logic analyzer. Carefully designed maximizing captu
 
 ## Usage
 
+One way of using a scope is by recording events during a fixed time period after a trigger
+condition is met.
+
 Include the library and configure a new scope.
 
 ```c++
+// Include library
 #include <DigitalScope.h>
-using namespace cheind;
 
-// Initalize scope with max number of events to collect (128) and target pin (2)
-#define NEVENTS 128
-DigitalScope<NEVENTS> scope(2);
+// Initalize a new scope with max number of events 
+// to collect (128) and target pin (2)
+typedef scopes::DigitalScope<128, 2> Scope;
 ```
 
-**DigitalScope** uses interrupt service routines to free your code from unnecessary polling.
-One way of using a scope is by recording events during a fixed time period after some start
-trigger was observed.
+**DigitalScope** uses interrupt service routines to free your code from unnecessary polling (if
+you want to). You can use callbacks on certain events to upate your main loop.
+
 
 ```c++
 
@@ -28,6 +31,8 @@ bool started = false;
 
 void setup()
 {
+    started = false;
+
     // Used for outputting captured values.
     Serial.begin(9600);
     while(!Serial) {}
@@ -35,14 +40,12 @@ void setup()
     // Set a callback function to be invoked when data recording has begun. 
     scope.setBeginCallback(onBegin);
 
-    started = false;
-
-    // Start recording when we observe a falling edge on input.
+    // Start recording when we observe the first falling edge.
     scope.start(FALLING);
 }
 ```
 
-The callback function simply set the `started` flag as shown below
+The callback function simply sets the `started` flag as shown below
 
 ```c++
 void onBegin() 
@@ -52,8 +55,7 @@ void onBegin()
 }
 ```
 
-Finally in `loop()` we wait for 1 second once `started` turned true and 
-output all events captured during this period via the Serial interface.
+Finally in `loop()` we pause for 1 second once first event was observed and output all events captured during this period via the Serial interface.
 
 ```c++
 void loop()

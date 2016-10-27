@@ -29,13 +29,13 @@ bool started = false;
 
 void setup()
 {
+    started = false;
+
     Serial.begin(9600);
     while(!Serial) {}
 
     // Set our callback function when data recording has begun. 
     scope.setBeginCallback(onBegin);
-
-    started = false;
 
     // Start recording when we observe a falling edge on input.
     scope.start(FALLING);
@@ -58,6 +58,7 @@ void loop()
             // since first event, the current state HIGH/LOW, 
             // the event type triggering, and
             // the state change RISING/FALLING.
+            
             Serial.print(scope.timeOf(i)); Serial.print(" ");            
             Serial.print(scope.eventOf(i)); Serial.print(" ");
             Serial.print(scope.stateOf(i));
