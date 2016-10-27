@@ -21,9 +21,16 @@
 
 namespace scopes {
 
+    /** Enable callbacks invoked when first event is observed. */
     const int OptionBeginCallback = 1 << 1;
+
+    /** Enable callbacks invoked when all samples are recorded. */
     const int OptionCompleteCallback = 1 << 2;
+
+    /** Enable automatically stopping the capture process once no more space is left. */
     const int OptionAutoStop = 1 << 3;
+
+    /** Default options. */
     const int DefaultOptions = OptionBeginCallback | OptionCompleteCallback | OptionAutoStop;
 
     /** A digital scope to capture edge event changes at input pins.
@@ -34,41 +41,47 @@ namespace scopes {
         of digital input pins. DigitalScope supports three different types of start triggers 
         (CHANGE, RISING, FALLING).
 
-        The number of events DigitalScope can record is specified by the template argument `N`. 
+        ## Template Arguments
+        
+        \tparam N_ Number of events to capture. Needs to be a power of 2
+        \tparam Pin_ Index of pin to read from
+        \tparam Options_ A bitwise or'ed combination of compile time options. Defaults to  
+                         OptionBeginCallback | OptionCompleteCallback | OptionAutoStop;
 
+                        
+        ## What is recorded        
+        
         Upon the first event the scope records the absolute timestamp in microseconds 
-        (DigitalScope::timeOfStart) and makes subsequent events relative to reference timestamp. 
+        (DigitalScope::timeOfStart) and makes subsequent events relative to this timestamp. 
         DigitalScope::timeOf reports the relative time of an indexed event. DigitalScope::eventOf
         reports the reconstructed edge event (RISING, FALLING) for an indexed event and 
         DigitalScope::stateOf returns the associated state (HIGH,LOW). 
 
-        The template argument `D` allows you to specify the data depth of each 
-        timestamp. Using the default (uint32_t) allows for correct recording of event timestamps of
-        up to 2^32 microseconds (~ 4296 seconds) after the first event was captured. You may choose less
-        bits to save memory at the expense of shorter capture periods. DigitalScope does not perform
-        any overflow checks.
+        ## Triggering
+
+        By default recording starts when the first change event is detected after DigitalScope::start
+        was called. Besides CHANGING, RISING and FALLING triggers are supported.
 
         See `examples/` directory for example usage.
-
+        
         ## Notes
 
         The digital scope uses an interrupt service routine (ISR) to capture event changes on target pins. 
         Not all boards support ISRs to be attached to all available pins. Refer to 
         https://www.arduino.cc/en/Reference/AttachInterrupt to determine which pins or pin-groups are supported.
 
-        ## Warnings
-        
-        When using callbacks such as DigitalScope::onComplete, DigitalScope::onFirst take notice that
+        When using callbacks such as DigitalScope::onComplete, DigitalScope::onBegin take notice that
         those callbacks are invoked from an interrupt service handler (ISR). Make sure that your callback
         is as short as possible to avoid missing any events. Also, functions such as delay will not work
         correctly from within ISRs.
 
+        Read more about ISRs: https://www.arduino.cc/en/Reference/AttachInterrupt
+
+        ## Warning
+
         DigitalScope can only be configured for a single input pin and for peculiarities of ISRs only 
         one DigitalScope should be running at any point in time.
-        
-        Read more about ISRs: https://www.arduino.cc/en/Reference/AttachInterrupt 
     **/
-
     template<uint16_t N_, uint8_t Pin_, int Options_ = DefaultOptions>
     class DigitalScope {      
     public:
@@ -94,12 +107,13 @@ namespace scopes {
         /** Ensure detaching of ISR when deallocating object. */
         ~DigitalScope()
         { 
+            stop();
         }
 
         /** Set a callback function to be invoked when desired number of events were recorded.
 
             A callback function will only be invoked when support for it has been enabled at 
-            compile time through the WhichCallbacks_ template argument.
+            compile time through the Options_ template argument.
 
             \param fnc  a pointer to function with signature void(void). Pass emptyCallback() to
                         disable a previously set callback.     
@@ -113,7 +127,7 @@ namespace scopes {
         /** Set a callback function to be invoked after the first event was recorded.
 
             A callback function will only be invoked when support for it has been enabled at 
-            compile time through the WhichCallbacks_ template argument.
+            compile time through the Options_ template argument.
             
             \param fnc  a pointer to function with signature void(void). Pass emptyCallback() to
             disable a previously set callback.   
@@ -182,7 +196,10 @@ namespace scopes {
             return numEvents() == N;
         }
 
-        /** Returns the event time (us) relative to start time of event collection. */ 
+        /** Returns the event time (us) relative to start time of event collection.
+
+            Should only be called after DigitalScope::stop().         
+        */ 
         uint32_t timeOf(uint16_t idx) const {
             return _data.samples[idx] - timeOfStart();
         } 
@@ -204,7 +221,10 @@ namespace scopes {
             return eventOf(idx) == RISING ? HIGH : LOW;            
         }
 
-        /** Returns event collection start time (us) since the Arduino began running the current program. */
+        /** Returns trigger time (us) since the Arduino began running the current program.
+
+            Should only be called after DigitalScope::stop().  
+        */
         const uint32_t timeOfStart() const {
             return _data.samples[0];
         }
@@ -214,10 +234,7 @@ namespace scopes {
             return _istate;
         }
 
-        bool overflown() const {
-            return _data.idx > N;
-        }
-
+        /** Empty callback method prototype. */
         static void emptyCallback() {}
 
     private:
