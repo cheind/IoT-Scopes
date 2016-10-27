@@ -88,14 +88,12 @@ namespace scopes {
         /** Initialize a scope */
         DigitalScope()
         {
-            pinMode(Pin_, INPUT);
-            attachInterrupt(digitalPinToInterrupt(Pin_), Self::onChange, CHANGE);
+
         }
 
         /** Ensure detaching of ISR when deallocating object. */
         ~DigitalScope()
         { 
-            detachInterrupt(digitalPinToInterrupt(Pin_));
         }
 
         /** Set a callback function to be invoked when desired number of events were recorded.
@@ -108,9 +106,7 @@ namespace scopes {
         */
         void setCompleteCallback(CallbackFnc fnc) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                if (!_data.enabled) {
-                    _data.onComplete = fnc;
-                }
+                _data.onComplete = fnc;
             }
         }
 
@@ -124,9 +120,7 @@ namespace scopes {
         */
         void setBeginCallback(CallbackFnc fnc) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                if (!_data.enabled) {
-                    _data.onBegin = fnc;
-                }
+                _data.onBegin = fnc;
             }
         }
 
@@ -142,56 +136,45 @@ namespace scopes {
          */
         void start(uint8_t triggerMode = CHANGE) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                if (_data.enabled) return;
-
                 self = this;
 
+                pinMode(Pin_, INPUT);
                 uint8_t state = digitalRead(Pin);
 
                 switch (triggerMode) {
-                case CHANGE:                     
-                    _offset = 0;
-                    _istate = !state; 
+                case CHANGE:
+                    _data.idx = 0;
+                    _istate = !state;
                     break;
                 case RISING:
-                    _offset = (state == LOW) ? 0 : 1;
-                    _istate = HIGH; 
+                    _data.idx = (state == LOW) ? 0 : -1;
+                    _istate = HIGH;                     
                     break;
                 case FALLING:
-                    _offset = (state == HIGH) ? 0 : 1;
+                    _data.idx = (state == HIGH) ? 0 : -1;
                     _istate = LOW; 
                     break;
-                }
+                }    
 
-                Serial.println(_offset);
-
-                _data.idx = 0;
-                _data.enabled = true;                
+                attachInterrupt(digitalPinToInterrupt(Pin_), _data.idx < 0 ? Self::onChangeSkipFirstN : Self::onChange, CHANGE);
+                EIFR |= 0x01; // clear any pending interrupts from before start().          
             }
         }
 
         /** Stop event collection. */
         void stop() {
              ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                 _data.enabled = false;
+                 detachInterrupt(digitalPinToInterrupt(Pin_));
              }             
-        }
-
-        /** Test if scope is currently collecting events. */
-        bool isEnabled() const {
-            ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                return _data.enabled;
-            }    
-            DIGITALSCOPE_NO_RETURN_WARN(bool);
         }
 
         /** Number of events already collected. */
         uint16_t numEvents() const {
-            uint16_t idx;
+            uint32_t idx;
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 idx = _data.idx;
             }
-            return idx > 0 ? (idx - _offset) : 0; 
+            return idx > 0 ? uint16_t(idx) : 0; 
         }
 
         /** Test if the number of events collected matches internal buffer size. */
@@ -201,7 +184,7 @@ namespace scopes {
 
         /** Returns the event time (us) relative to start time of event collection. */ 
         uint32_t timeOf(uint16_t idx) const {
-            return _data.samples[idx + _offset] - timeOfStart();
+            return _data.samples[idx] - timeOfStart();
         } 
 
         /** Return the event type associated with a specific event.
@@ -223,7 +206,7 @@ namespace scopes {
 
         /** Returns event collection start time (us) since the Arduino began running the current program. */
         const uint32_t timeOfStart() const {
-            return _data.samples[_offset];
+            return _data.samples[0];
         }
 
         /** Returns the initial state of input just before sampling started. */
@@ -242,60 +225,66 @@ namespace scopes {
         typedef DigitalScope<N_, Pin_, Options_> Self;
 
         struct SharedData {
-            uint16_t idx;
+            int32_t idx;
             uint32_t samples[N];
             CallbackFnc onBegin;
             CallbackFnc onComplete;
-            bool enabled;
 
             SharedData()
-                :idx(0), onBegin(Self::emptyCallback), onComplete(Self::emptyCallback), enabled(false)
+                :idx(0), onBegin(Self::emptyCallback), onComplete(Self::emptyCallback)
             {}
         };
 
-        static Self *self;
-
+        static Self *self;      
         
-        
-        /** ISR - Called per edge change.
-
-            Updates state of DigitalScope<T>::SharedData.
-         */
-        static void onChange() {
+        inline static void onChange() {
             uint32_t now = micros();
-
             volatile SharedData &d = self->_data;
-            
-            // When not enabled, do nothing
-            if (!d.enabled) {
-                return;
-            } 
-            
-            uint16_t slot = d.idx & (N-1); // Fast modulo for power of two numbers.
-            d.samples[slot] = now;
-            d.idx++;
 
-            if (WithBeginCallback) { // Compile time if
-                if (d.idx == 1) {
+            Self::_onChange(now, d);           
+        }
+
+        inline static void onChangeSkipFirstN() {
+            uint32_t now = micros();
+            volatile SharedData &d = self->_data;
+
+            if (d.idx < 0) {
+                d.idx++;
+                return;
+            }
+
+            Self::_onChange(now, d);                   
+        }
+
+        inline static void _onChange(uint32_t now, volatile SharedData &d) {
+
+            int32_t slot = d.idx & (N - 1); // Fast modulo for power of two numbers.
+            d.samples[slot] = now;
+
+            if (WithBeginCallback)
+            { // Compile time if
+                if (d.idx == 0)
+                {
                     d.onBegin();
                 }
             }
 
-            if (WithCompleteCallback) { // Compile time if
-                if (d.idx == N) {
-                    
-                    if (WithAutoStop) { // Compile time if
-                        d.enabled = false;
-                    }
+            d.idx++;
 
-                    d.onComplete();
+            if (WithCompleteCallback | WithAutoStop)
+            { // Compile time if
+                const bool complete = (d.idx == N);
+
+                if (complete)
+                {
+                    if (WithAutoStop)
+                        detachInterrupt(digitalPinToInterrupt(Pin_));
+                    if (WithCompleteCallback)
+                        d.onComplete();
                 }
             }
-            
-            
         }
 
-        uint8_t _offset;
         uint8_t _istate;
         volatile SharedData _data;
     };
