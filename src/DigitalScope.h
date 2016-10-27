@@ -19,7 +19,12 @@
     #define DIGITALSCOPE_NO_RETURN_WARN(type) return type(0);
 #endif
 
-namespace cheind {
+namespace scopes {
+
+    const int OptionBeginCallback = 1 << 1;
+    const int OptionCompleteCallback = 1 << 2;
+    const int OptionAutoStop = 1 << 3;
+    const int DefaultOptions = OptionBeginCallback | OptionCompleteCallback | OptionAutoStop;
 
     /** A digital scope to capture edge event changes at input pins.
 
@@ -64,32 +69,44 @@ namespace cheind {
         Read more about ISRs: https://www.arduino.cc/en/Reference/AttachInterrupt 
     **/
 
-    template<uint16_t N, typename D = uint32_t>
+    template<uint16_t N_, uint8_t Pin_, int Options_ = DefaultOptions>
     class DigitalScope {      
     public:
+        enum {
+            N = N_,
+            Pin = Pin_,
+            IsPowerOfTwo = N && !(N & (N - 1)),
+            WithBeginCallback = (Options_ & OptionBeginCallback),
+            WithCompleteCallback = (Options_ & OptionCompleteCallback),
+            WithAutoStop = (Options_ & OptionAutoStop)
+        };
+
+        static_assert(IsPowerOfTwo, "N needs to be a power of two i.e 128, 256, 521");
 
         typedef void (*CallbackFnc)();
 
-        /** Initialize a scope using the pin to read events from. */
-        DigitalScope(uint8_t pin)
-        : _pin(pin)
+        /** Initialize a scope */
+        DigitalScope()
         {
-            pinMode(_pin, INPUT);
-            attachInterrupt(digitalPinToInterrupt(_pin), DigitalScope<N>::onChange, CHANGE);
+            pinMode(Pin_, INPUT);
+            attachInterrupt(digitalPinToInterrupt(Pin_), Self::onChange, CHANGE);
         }
 
         /** Ensure detaching of ISR when deallocating object. */
         ~DigitalScope()
         { 
-            detachInterrupt(digitalPinToInterrupt(_pin));
+            detachInterrupt(digitalPinToInterrupt(Pin_));
         }
 
         /** Set a callback function to be invoked when desired number of events were recorded.
 
-            \param fnc  a pointer to function with signature void(void). Pass zero pointer to
+            A callback function will only be invoked when support for it has been enabled at 
+            compile time through the WhichCallbacks_ template argument.
+
+            \param fnc  a pointer to function with signature void(void). Pass emptyCallback() to
                         disable a previously set callback.     
         */
-        void setCompletedCallback(CallbackFnc fnc) {
+        void setCompleteCallback(CallbackFnc fnc) {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (!_data.enabled) {
                     _data.onComplete = fnc;
@@ -98,8 +115,11 @@ namespace cheind {
         }
 
         /** Set a callback function to be invoked after the first event was recorded.
+
+            A callback function will only be invoked when support for it has been enabled at 
+            compile time through the WhichCallbacks_ template argument.
             
-            \param fnc  a pointer to function with signature void(void). Pass zero pointer to
+            \param fnc  a pointer to function with signature void(void). Pass emptyCallback() to
             disable a previously set callback.   
         */
         void setBeginCallback(CallbackFnc fnc) {
@@ -124,26 +144,28 @@ namespace cheind {
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 if (_data.enabled) return;
 
-                self = this; 
+                self = this;
 
-                _data.start = 0;
-                uint8_t state = digitalRead(_pin);
+                uint8_t state = digitalRead(Pin);
 
                 switch (triggerMode) {
-                case CHANGE: 
-                    _data.idx = 0;
-                    _istate = state; 
+                case CHANGE:                     
+                    _offset = 0;
+                    _istate = !state; 
                     break;
                 case RISING:
-                    _data.idx = (state == LOW) ? 0 : -1;
+                    _offset = (state == LOW) ? 0 : 1;
                     _istate = HIGH; 
                     break;
                 case FALLING:
-                    _data.idx = (state == HIGH) ? 0 : -1;
+                    _offset = (state == HIGH) ? 0 : 1;
                     _istate = LOW; 
                     break;
                 }
 
+                Serial.println(_offset);
+
+                _data.idx = 0;
                 _data.enabled = true;                
             }
         }
@@ -165,11 +187,11 @@ namespace cheind {
 
         /** Number of events already collected. */
         uint16_t numEvents() const {
-            int32_t idx;
+            uint16_t idx;
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-                idx = _data.idx; 
+                idx = _data.idx;
             }
-            return idx < 0 ? 0 : static_cast<uint16_t>(idx);
+            return idx > 0 ? (idx - _offset) : 0; 
         }
 
         /** Test if the number of events collected matches internal buffer size. */
@@ -179,7 +201,7 @@ namespace cheind {
 
         /** Returns the event time (us) relative to start time of event collection. */ 
         uint32_t timeOf(uint16_t idx) const {
-            return _data.samples[idx];
+            return _data.samples[idx + _offset] - timeOfStart();
         } 
 
         /** Return the event type associated with a specific event.
@@ -201,7 +223,7 @@ namespace cheind {
 
         /** Returns event collection start time (us) since the Arduino began running the current program. */
         const uint32_t timeOfStart() const {
-            return _data.start;
+            return _data.samples[_offset];
         }
 
         /** Returns the initial state of input just before sampling started. */
@@ -209,24 +231,33 @@ namespace cheind {
             return _istate;
         }
 
+        bool overflown() const {
+            return _data.idx > N;
+        }
+
+        static void emptyCallback() {}
+
     private:
 
+        typedef DigitalScope<N_, Pin_, Options_> Self;
+
         struct SharedData {
-            int32_t idx;
-            uint32_t start;
-            D samples[N];
+            uint16_t idx;
+            uint32_t samples[N];
             CallbackFnc onBegin;
             CallbackFnc onComplete;
             bool enabled;
 
             SharedData()
-                :idx(0), start(0), onBegin(0), onComplete(0), enabled(false)
+                :idx(0), onBegin(Self::emptyCallback), onComplete(Self::emptyCallback), enabled(false)
             {}
         };
 
-        static DigitalScope<N, D> *self;
+        static Self *self;
+
         
-        /** ISR - Called per edge change._buffer
+        
+        /** ISR - Called per edge change.
 
             Updates state of DigitalScope<T>::SharedData.
          */
@@ -240,36 +271,37 @@ namespace cheind {
                 return;
             } 
             
-            // The idx variable tells us about the next event slot. 
-            // Here we have the following possibilities: 
-            
-            if (d.idx < 0) {
-                // A negative index tells us to skip this event (trigger).
-                d.idx++;
-            } else if (d.idx == N) {
-                // We have reached the maximum number of events we can store.
-                d.enabled = false;
-                if (d.onComplete) d.onComplete();
-            } else {                
-                if (d.idx == 0) {
-                    // On first event we record start time.   
-                    d.start = now;
-                    if (d.onBegin) d.onBegin();
+            uint16_t slot = d.idx & (N-1); // Fast modulo for power of two numbers.
+            d.samples[slot] = now;
+            d.idx++;
+
+            if (WithBeginCallback) { // Compile time if
+                if (d.idx == 1) {
+                    d.onBegin();
                 }
-                
-                // Save timestamp
-                d.samples[d.idx++] = D(now - d.start);
             }
+
+            if (WithCompleteCallback) { // Compile time if
+                if (d.idx == N) {
+                    
+                    if (WithAutoStop) { // Compile time if
+                        d.enabled = false;
+                    }
+
+                    d.onComplete();
+                }
+            }
+            
             
         }
 
-        uint8_t _pin;
+        uint8_t _offset;
         uint8_t _istate;
         volatile SharedData _data;
     };
 
-    template <uint16_t N, typename D>
-    DigitalScope<N, D> *DigitalScope<N, D>::self = 0;
+    template <uint16_t N, uint8_t P, int O>
+    DigitalScope<N, P, O> *DigitalScope<N, P, O>::self = 0;
 }
 
 #endif

@@ -18,11 +18,10 @@
 
 // Include the library
 #include <DigitalScope.h>
-using namespace cheind;
 
 // Initalize scope with number of events to collect (128) and target pin (2)
-#define NEVENTS 128
-DigitalScope<NEVENTS> scope(2);
+typedef scopes::DigitalScope<128, 2> Scope;
+Scope scope;
 
 // Will be used to signal data readiness. 
 bool complete = false;
@@ -33,10 +32,11 @@ void setup()
     while(!Serial) {}
 
     // Set a callback function when data recording is complete. 
-    scope.setCompletedCallback(onComplete);
+    scope.setCompleteCallback(onComplete);
 
     // Start recording.
     complete = false;
+
     scope.start();
 }
 
@@ -44,10 +44,9 @@ void loop()
 {
     if (complete) {
         
-        // Data is available, print via Serial
-        
+        // Data is available, print via Serial        
         Serial.println("BEGIN DATA");
-        for (uint16_t i = 0; i < NEVENTS; ++i)
+        for (uint16_t i = 0; i < scope.numEvents(); ++i)
         {
             // Print info about event time in microseconds 
             // since first event, the current state HIGH/LOW, the event type triggering
@@ -71,7 +70,7 @@ void loop()
 /**
     Callback function invoked by scope when required number of samples were recorded.
 
-    This function is handed to scope through DigitalScope::setCompletedCallback in 
+    This function is handed to scope through DigitalScope::setCompleteCallback in 
     setup(), before the scope is started.     
 */
 void onComplete() 

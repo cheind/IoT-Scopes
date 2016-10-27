@@ -19,11 +19,10 @@
 
 // Include library
 #include <DigitalScope.h>
-using namespace cheind;
 
 // Initalize scope with max number of events to collect (128) and target pin (2)
-#define NEVENTS 128
-DigitalScope<NEVENTS> scope(2);
+typedef scopes::DigitalScope<128, 2> Scope;
+Scope scope;
 
 // Will be used to signal begin of event detection. 
 bool started = false;
