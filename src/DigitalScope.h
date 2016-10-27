@@ -256,7 +256,7 @@ namespace scopes {
             Self::_onChange(now, d);                   
         }
 
-        inline static void _onChange(uint32_t now, volatile SharedData &d) {
+        inline static void _onChange(uint32_t now, volatile SharedData &d) __attribute__((always_inline)) {
 
             int32_t slot = d.idx & (N - 1); // Fast modulo for power of two numbers.
             d.samples[slot] = now;
