@@ -107,7 +107,7 @@ In general we conclude that **DigitalScope** is off by `55us` after `180ms`.
 **DigitalScope** was developed for recording IR signals sent out by remotes operating at 38kHz. The following findings are based on differences of event arrival times reported between two systems. The first system consists of an hardware logic analyzer (Saleae Logic 4) and the second one is a Arduino Uno R3 running **DigitalScope** (program compiled with `-O3`). 
 
 ### Data
-All data was captured simulateously for both systems and originated from a TSOP3848 IR receiver. The comparison below consists of 216 events captured during a period of `0.41` seconds. This corresponds to 6 IR bursts with 5 pauses of roughly `50`ms each.
+All data was captured simulateously for both systems and stems from a TSOP3848 IR receiver. The comparison below consists of 216 events captured during a period of `0.41` seconds. This corresponds to 6 IR bursts with 5 pauses of roughly `50`ms each.
 
 ### Evaluation
 
