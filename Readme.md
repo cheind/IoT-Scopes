@@ -100,7 +100,7 @@ More examples can be found in the [examples](examples/) directory.
 ## Accuracy
 
 ### tl;tr
-In general we find that on average **DigitalScope** is off by `55us` after `180ms`. 
+In general we conclude that **DigitalScope** is off by `55us` after `180ms`. 
 
 ### Setup
 
