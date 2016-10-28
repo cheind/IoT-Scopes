@@ -1,7 +1,7 @@
 
 # DigitalScope - Library
 
-This library is a collection of routines for recording events from digital input pins. It turns
+A collection of routines for recording events from digital input pins. It turns
 your Arduino into a software logic analyzer. Carefully designed maximizing capture performance.
 
 ## Usage
