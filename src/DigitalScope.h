@@ -82,7 +82,7 @@ namespace scopes {
         DigitalScope can only be configured for a single input pin and for peculiarities of ISRs only 
         one DigitalScope should be running at any point in time.
     **/
-    template<uint16_t N_, uint8_t Pin_, int Options_ = DefaultOptions>
+    template<int16_t N_, uint8_t Pin_, int Options_ = DefaultOptions>
     class DigitalScope {      
     public:
         enum {
@@ -100,9 +100,7 @@ namespace scopes {
 
         /** Initialize a scope */
         DigitalScope()
-        {
-
-        }
+        {}
 
         /** Ensure detaching of ISR when deallocating object. */
         ~DigitalScope()
@@ -183,12 +181,12 @@ namespace scopes {
         }
 
         /** Number of events already collected. */
-        uint16_t numEvents() const {
-            uint32_t idx;
+        int16_t numEvents() const {
+            int16_t idx;
             ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
                 idx = _data.idx;
-            }
-            return idx > 0 ? uint16_t(idx) : 0; 
+            }            
+            return idx > 0 ? idx : 0; 
         }
 
         /** Test if the number of events collected matches internal buffer size. */
@@ -200,7 +198,7 @@ namespace scopes {
 
             Should only be called after DigitalScope::stop().         
         */ 
-        uint32_t timeOf(uint16_t idx) const {
+        uint32_t timeOf(int16_t idx) const {
             return _data.samples[idx] - timeOfStart();
         } 
 
@@ -208,7 +206,7 @@ namespace scopes {
 
             \return RISING or FALLING depending on the event type.
          */
-        uint8_t eventOf(uint16_t idx) const {
+        uint8_t eventOf(int16_t idx) const {
             const bool isFalling = (idx % 2 == 0) ^ (_istate == HIGH); 
             return isFalling ? FALLING : RISING;
         }
@@ -217,7 +215,7 @@ namespace scopes {
 
             \return HIGH or LOW depending on the state.
         */
-        uint8_t stateOf(uint16_t idx) const {
+        uint8_t stateOf(int16_t idx) const {
             return eventOf(idx) == RISING ? HIGH : LOW;            
         }
 
@@ -242,10 +240,10 @@ namespace scopes {
         typedef DigitalScope<N_, Pin_, Options_> Self;
 
         struct SharedData {
-            int32_t idx;
+            volatile int16_t idx;
             uint32_t samples[N];
-            CallbackFnc onBegin;
-            CallbackFnc onComplete;
+            volatile CallbackFnc onBegin;
+            volatile CallbackFnc onComplete;
 
             SharedData()
                 :idx(0), onBegin(Self::emptyCallback), onComplete(Self::emptyCallback)
@@ -256,31 +254,33 @@ namespace scopes {
         
         inline static void onChange() {
             uint32_t now = micros();
-            volatile SharedData &d = self->_data;
+            SharedData &d = self->_data;
 
-            Self::_onChange(now, d);           
+            Self::_onChange(&now, d);           
         }
 
         inline static void onChangeSkipFirstN() {
             uint32_t now = micros();
-            volatile SharedData &d = self->_data;
+            SharedData &d = self->_data;
 
-            if (d.idx < 0) {
-                d.idx++;
+            int16_t idx = d.idx;
+            if (idx < 0) {
+                d.idx = idx + 1;
                 return;
             }
 
-            Self::_onChange(now, d);                   
+            Self::_onChange(&now, d);                   
         }
 
-        inline static void _onChange(uint32_t now, volatile SharedData &d) __attribute__((always_inline)) {
+        inline static void _onChange(uint32_t *now, SharedData &d) {
             
-            int32_t idx = d.idx; // Read in volatile here once.
-            
-            int32_t slot = idx & (N - 1); // Fast modulo for power of two numbers.
-            d.samples[slot] = now;
 
-            if (WithBeginCallback) // Compile time if
+            int16_t idx = d.idx;            // Read in volatile here once.
+            
+            int16_t slot = idx & (N - 1);   // Fast modulo for power of two numbers.
+            d.samples[slot] = *now;
+
+            if (WithBeginCallback)          // Compile time if
             {
                 if (idx == 0)
                 {
@@ -289,10 +289,11 @@ namespace scopes {
             }
 
             idx++;
+            d.idx = idx;
 
             if (WithCompleteCallback | WithAutoStop) // Compile time if
             {
-                const bool complete = (idx == N);
+                const bool complete = (idx == N_);
 
                 if (complete)
                 {
@@ -302,15 +303,13 @@ namespace scopes {
                         d.onComplete();
                 }
             }
-
-            d.idx = idx;
         }
 
         uint8_t _istate;
-        volatile SharedData _data;
+        SharedData _data;
     };
 
-    template <uint16_t N, uint8_t P, int O>
+    template <int16_t N, uint8_t P, int O>
     DigitalScope<N, P, O> *DigitalScope<N, P, O>::self = 0;
 }
 
