@@ -24,7 +24,7 @@ typedef scopes::DigitalScope<128, 2> Scope;
 Scope scope;
 
 // Will be used to signal data readiness. 
-bool complete = false;
+volatile bool complete = false;
 
 void setup()
 {

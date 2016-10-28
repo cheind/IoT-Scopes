@@ -25,7 +25,7 @@ typedef scopes::DigitalScope<128, 2> Scope;
 ```c++
 
 // Will be used to signal begin of event detection. 
-bool started = false;
+volatile bool started = false;
 
 void setup()
 {
