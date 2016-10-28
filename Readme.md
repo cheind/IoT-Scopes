@@ -99,14 +99,32 @@ More examples can be found in the [examples](examples/) directory.
 
 ## Accuracy
 
-**DigitalScope** was developed for recording IR signals sent out by remotes operating at 38kHz. The following findings are based on differences of event arrival times reported between a hardware logic analyzer (Saleae Logic 4) and **DigitalScope** running on an Arduino Uno R3. Data was captured simulateously based on edge triggering over multiple runs.
+### tl;tr
+In general we find that on average **DigitalScope** is off by `55us` after `180ms`. 
 
-We find that on average **DigitalScope** is off by `55us` after `180ms`. The image below shows how timing errors increase linearly with recording time. The three zigzags correspond to three data bursts sent from an IR remote. 
+### Setup
 
-![Timing errors](etc/timing_errors_small.png)
+**DigitalScope** was developed for recording IR signals sent out by remotes operating at 38kHz. The following findings are based on differences of event arrival times reported between two systems. The first is a hardware logic analyzer (Saleae Logic 4) and the second one an Arduino Uno R3 running **DigitalScope** (program compiled with `-O3`). 
 
-Since the timing error in between the bursts increases as well (i.e ISR is not invoked because no edge events occur), we could conclude that this effect can be attributed partly to the inaccuracy of the Arduino clock. 
+### Data
+All data was captured simulateously for both systems and originated from a TSOP3848 IR receiver. The comparison below consists of 216 events captured during a period of `0.41` seconds. This corresponds to 6 IR bursts with 5 pauses of roughly `50`ms each.
 
-Based on [literature](http://forum.arduino.cc/index.php?topic=13289.0) the Arduino Uno R3 uses a ceramic resonantor instead of a crystal. Typical errors of ceramic resonators range are around `0.5%` or `5000ppm`. Note this is backed by [this thread](http://forum.arduino.cc/index.php?topic=89784.0). `5000ppm` means the tolerated deviation from a nominal clock value is ~ +/- `900us` in every `180ms`. Far below the `55us` on average measured.
+### Evaluation
 
-The [accuracy](http://support.saleae.com/hc/en-us/articles/208667166-Measurement-Error-Logic-timing-digital-pulse-width-) of the logic analyzer is `50ppm` or `0.005%`. It has been neglected in the above conclusion as well as other contributing factors such as when thresholds for analog signals are reached.
+The image below shows the signed timing differences between events. The x-axis is the time axis, the y-axis shows the signed difference of event arrival between hardware and Arduino.
+
+![Timing errors](etc/timing_errors_over_time.png)
+
+Note how differences increase linearly with recording time. The six zigzags correspond to data bursts sent from an IR remote. The straight lines in between indicate pauses.
+
+Since the timing differences in pauses increase as well (i.e ISR is not invoked because no edge events occur), we conclude this effect can be attributed to the inaccuracy of the Arduino clock. In particular: this Arduino is running slow.
+
+This is no suprise. The clock of the Arduino Uno isn't the most accurate. [This](http://forum.arduino.cc/index.php?topic=13289.0) and [this](http://forum.arduino.cc/index.php?topic=89784.0) thread shed light on the Arduino Uno R3's clock. It consists of ceramic resonantor and not a quartz crystal. Typical errors of ceramic resonators range are around `0.5%` or `5000ppm`. `5000ppm` specifies that the allowed tolerated deviation from a nominal clock value is ~ +/- `900us` in every `180ms`. In contrast the [accuracy](http://support.saleae.com/hc/en-us/articles/208667166-Measurement-Error-Logic-timing-digital-pulse-width-) of the logic analyzer is `50ppm` or `0.005%`. This is considerably more accurate (which is why we trust the hardware in this comparison :)
+
+By talking out the linear trend in the above image we get
+
+![Timing errors](etc/detrended_timing_errors_over_time.png)
+
+During periods of rapid event arrival the time differences turn around, leading to the conclusion that **DigitalScope** detects events slightly later, due to processing time or different digital voltage thresholds on both systems.
+
+In case you are eager to reproduce the above findings have a look at [etc/timing_data](etc/timing_data).

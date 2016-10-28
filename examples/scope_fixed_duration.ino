@@ -21,7 +21,7 @@
 #include <DigitalScope.h>
 
 // Initalize scope with max number of events to collect (128) and target pin (2)
-typedef scopes::DigitalScope<128, 2> Scope;
+typedef scopes::DigitalScope<256, 2> Scope;
 Scope scope;
 
 // Will be used to signal begin of event detection. 
