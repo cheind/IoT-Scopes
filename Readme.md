@@ -6,7 +6,7 @@ your Arduino into a software logic analyzer. Carefully designed maximizing captu
 
 ## Usage
 
-One way of using a scope is by recording events during a fixed time period after a trigger
+Use a scope to record digital events during a fixed time period after a trigger
 condition is met.
 
 Include the library and configure a new scope.
