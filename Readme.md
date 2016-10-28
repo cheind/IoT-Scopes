@@ -107,7 +107,7 @@ In general we conclude that **DigitalScope** is off by `55us` after `180ms`.
 **DigitalScope** was developed for recording IR signals sent out by remotes operating at 38kHz. The following findings are based on differences of event arrival times reported between two systems. The first system consists of an hardware logic analyzer (Saleae Logic 4) and the second one is a Arduino Uno R3 running **DigitalScope** (program compiled with `-O3`). 
 
 ### Data
-All data was captured simulateously for both systems and stems from a TSOP3848 IR receiver. The comparison below consists of 216 events captured during a period of `0.41` seconds. This corresponds to 6 IR bursts with 5 pauses of roughly `50`ms each.
+All data was captured simulateously for both systems and stems from a TSOP3848 IR receiver. The comparison below consists of 216 events captured during a period of 0.41 seconds. This corresponds to 6 IR bursts with 5 pauses of roughly 50 ms each.
 
 ### Evaluation
 
@@ -119,7 +119,7 @@ Note how differences increase linearly with recording time. The six zigzags corr
 
 Since the timing differences in pauses increase as well (i.e ISR is not invoked because no edge events occur), we conclude this effect can be attributed to the inaccuracy of the Arduino clock. In particular: this Arduino is running slow.
 
-This is no suprise. The clock of the Arduino Uno isn't the most accurate. [This](http://forum.arduino.cc/index.php?topic=13289.0) and [this](http://forum.arduino.cc/index.php?topic=89784.0) thread shed light on the Arduino Uno R3's clock. It consists of ceramic resonantor and not a quartz crystal. Typical errors of ceramic resonators range are around `0.5%` or `5000ppm`. `5000ppm` specifies that the allowed tolerated deviation from a nominal clock value is ~ +/- `900us` in every `180ms`. In contrast the [accuracy](http://support.saleae.com/hc/en-us/articles/208667166-Measurement-Error-Logic-timing-digital-pulse-width-) of the logic analyzer is `50ppm` or `0.005%`. This is considerably more accurate (which is why we trust the hardware in this comparison :)
+This is no suprise. The clock of the Arduino Uno isn't the most accurate. [This](http://forum.arduino.cc/index.php?topic=13289.0) and [this](http://forum.arduino.cc/index.php?topic=89784.0) thread shed light on the Arduino Uno R3's clock. It consists of ceramic resonantor and not a quartz crystal. Typical errors of ceramic resonators range are around 0.5% or 5000 pm. 5000 ppm specifies that the allowed tolerated deviation from a nominal clock value is ~ +/- 900 us in every 180 ms. In contrast the [accuracy](http://support.saleae.com/hc/en-us/articles/208667166-Measurement-Error-Logic-timing-digital-pulse-width-) of the logic analyzer is 50 ppm or 0.005%. This is considerably more accurate (which is why we trust the hardware in this comparison :)
 
 By talking out the linear trend in the above image we get
 
