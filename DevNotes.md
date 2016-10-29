@@ -3,16 +3,18 @@
 Compile
 
 ```
-pio ci --lib . --board uno examples\scope_fixed_duration.ino
+pio ci --lib . --board uno --project-conf platformio.ini examples\scope_fixed_duration.ino
 ```
 
 Compile and upload
 
 ```
-pio ci --lib . --board uno --project-option="targets=upload" examples\scope_fixed_duration.ino
+pio ci --lib . --board uno --project-conf platformio.ini examples\scope_fixed_duration.ino
 ```
 
- Inspect assembly
+Put `targets = upload` into `platformio.ini` in case you want to have immediate upload.
+
+Inspect assembly
 
 First instruct pio to use specific build dir (must exist)
 ```
