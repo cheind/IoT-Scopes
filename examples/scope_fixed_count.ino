@@ -20,7 +20,7 @@
 #include <DigitalScope.h>
 
 // Initalize scope with number of events to collect (128) and target pin (2)
-typedef scopes::DigitalScope<128, 2> Scope;
+typedef scopes::DigitalScope<256, 2> Scope;
 Scope scope;
 
 // Will be used to signal data readiness. 
@@ -38,6 +38,7 @@ void setup()
 
     // Start recording.    
     scope.start();
+    Serial.println("LOG Ready for capture");
 }
 
 void loop()
@@ -45,22 +46,19 @@ void loop()
     if (complete) {
         
         // Data is available, print via Serial        
-        Serial.println("BEGIN DATA");
-        for (uint16_t i = 0; i < scope.numEvents(); ++i)
+        Serial.print("DATA ");
+        for (int16_t i = 0; i < scope.numEvents(); ++i)
         {
             // Print info about event time in microseconds 
-            // since first event, the current state HIGH/LOW, the event type triggering
-            // the state change RISING/FALLING.
-            Serial.print(scope.timeOf(i)); Serial.print(",");            
-            Serial.print(scope.stateOf(i)); Serial.print(",");
-            Serial.print(scope.eventOf(i));
-            Serial.println();
+            // since first event and the current state HIGH/LOW
+            Serial.print(scope.timeOf(i)); Serial.print(" ");            
+            Serial.print(scope.stateOf(i)); Serial.print(" ");
         }
-        Serial.println("END DATA");
+        Serial.println();
         
         // Restart the scope after a short pause.
 
-        delay(5000);
+        delay(3000);
         Serial.println("LOG Ready for capture");
         complete = false;
         scope.start();

@@ -39,6 +39,7 @@ void setup()
 
     // Start recording when we observe a falling edge on input.
     scope.start(FALLING);
+    Serial.println("LOG Ready for capture");
 }
 
 void loop()
@@ -50,25 +51,19 @@ void loop()
         // Explicitly stop scope
         scope.stop();
 
-        const uint16_t nEvents = scope.numEvents();
-        Serial.println("BEGIN DATA");
-        for (uint16_t i = 0; i < nEvents; ++i)
+        Serial.print("DATA ");
+        for (int16_t i = 0; i < scope.numEvents(); ++i)
         {
             // Print info about event time in microseconds 
-            // since first event, the current state HIGH/LOW, 
-            // the event type triggering, and
-            // the state change RISING/FALLING.
-            
+            // since first event and the current state HIGH/LOW
             Serial.print(scope.timeOf(i)); Serial.print(" ");            
-            Serial.print(scope.eventOf(i)); Serial.print(" ");
-            Serial.print(scope.stateOf(i));
-            Serial.println();
+            Serial.print(scope.stateOf(i)); Serial.print(" ");
         }
-        Serial.println("END DATA");
+        Serial.println();
 
         // Restart the scope after a short pause.
 
-        delay(5000);
+        delay(3000);
         Serial.println("LOG Ready for capture");
         started = false;
         scope.start(FALLING);

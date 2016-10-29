@@ -16,8 +16,8 @@ Include the library and configure a new scope.
 #include <DigitalScope.h>
 
 // Initalize a new scope with max number of events 
-// to collect (128) and target pin (2)
-typedef scopes::DigitalScope<128, 2> Scope;
+// to collect (256) and target pin (2)
+typedef scopes::DigitalScope<256, 2> Scope;
 ```
 
 **DigitalScope** uses interrupt service routines to free your code from unnecessary polling. You can use callbacks on certain events to upate your main loop.
@@ -67,23 +67,15 @@ void loop()
         // Stop recording
         scope.stop();
 
-        Serial.println("BEGIN DATA");
-
-        const uint16_t nEvents = scope.numEvents();        
-        for (uint16_t i = 0; i < nEvents; ++i)
+        Serial.print("DATA ");
+        for (int16_t i = 0; i < scope.numEvents(); ++i)
         {
-            // Print event time in microseconds since first event, 
-            // event type RISING/FALLING and
-            // resulting event state HIGH/LOW
-
+            // Print info about event time in microseconds 
+            // since first event and the current state HIGH/LOW
             Serial.print(scope.timeOf(i)); Serial.print(" ");            
-            Serial.print(scope.eventOf(i)); Serial.print(" ");
-            Serial.print(scope.stateOf(i));
-
-            Serial.println();
+            Serial.print(scope.stateOf(i)); Serial.print(" ");
         }
-
-        Serial.println("END DATA");
+        Serial.println();
 
         // Restart the scope after a short pause.
 
@@ -96,6 +88,60 @@ void loop()
 ```
 
 More examples can be found in the [examples](examples/) directory.
+
+
+## Receiving and processing data on the host
+
+The [scripts](scripts/) directory contains a python script `receive.py`. It will connect to your Arduino and capture data packages. Those packets will be conveniently stored as CSV. You may use `receive.py` additionally to visualize the signal. The script requires numpy and matplotlib.
+
+First make sure that your Arduino is running one of the [examples](examples/). Then run 
+
+```
+> python receive.py -p COM3
+
+Press Ctrl+C to quit
+Connection established
+ARDUINO Ready for capture
+```
+
+where the `-p` argument should be modified to reflect your setup. Once you see that the Arduino says it is ready for capture, trigger the signal generation (i.e press the IR remote, ...) and wait for the result. 
+
+```
+ARDUINO Data captured, saved to b6ee14f4.csv
+ARDUINO Ready for capture
+``` 
+
+Each CSV file consists of timestamps and states. Each row represents a single event (change).
+
+```bash
+# Time(us) State(HIGH/LOW)
+0 0
+1072 1
+2504 0
+3080 1
+3504 0
+...snip...
+``` 
+
+You may take multiple captures. The **DigitalScope** is armed as soon you can spot the `ARDUINO Ready for capture` line.
+
+As a bonus you can visually inspect the signal using the `--show-signal` switch.
+
+```
+> python receive.py -p COM3 --show-signal
+
+Press Ctrl+C to quit
+Connection established
+ARDUINO Ready for capture
+ARDUINO Data captured, saved to b6ee14f4.csv
+```
+![Signal](etc/receivepy.png)
+
+For all available options type
+
+```
+> python receive.py -h
+```
 
 ## Accuracy
 
