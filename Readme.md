@@ -104,7 +104,7 @@ Connection established
 ARDUINO Ready for capture
 ```
 
-where the `-p` argument should be modified to reflect your setup. Once you see that the Arduino says it is ready for capture, trigger the signal generation (i.e press the IR remote, ...) and wait for the result. 
+where the `-p` argument should be modified to reflect your setup. Once you see that the Arduino is ready for capture, trigger the signal generation (i.e press the IR remote, ...) and wait for the result. 
 
 ```
 ARDUINO Data captured, saved to b6ee14f4.csv
