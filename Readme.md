@@ -18,6 +18,7 @@ Include the library and configure a new scope.
 // Initalize a new scope with max number of events 
 // to collect (256) and target pin (2)
 typedef scopes::DigitalScope<256, 2> Scope;
+Scope scope;
 ```
 
 **DigitalScope** uses interrupt service routines to free your code from unnecessary polling. You can use callbacks on certain events to upate your main loop.
