@@ -21,6 +21,7 @@
     "license": "BSD",
     "export": {
         "include": [
+            "src/*",
             "etc/*",
             "examples/*",
             "Readme.md"
